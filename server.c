@@ -8,15 +8,14 @@
 #include<string.h>
 
 void convert_addr(char* buff);
-
+int tcpsock;
+int conn;
 int main(int argc, char *argv[]) {
-	int tcpsock = socket(AF_INET, SOCK_STREAM, 0);
-	int udpsock = socket(AF_INET, SOCK_DGRAM, 0);
+	tcpsock = socket(AF_INET, SOCK_STREAM, 0);
 	if(tcpsock < 0) {
 		perror("Socket Error");
 		exit(0);
 	}
-	//create udp socket also to multiplex
 	
 	char buff[1024]; //for packet data
 
@@ -36,34 +35,38 @@ int main(int argc, char *argv[]) {
 	}
 	listen(tcpsock, 5);
 	int len = sizeof(cli);
-	int conn = accept(tcpsock, (struct sockaddr *)&cli, &len);
+	conn = accept(tcpsock, (struct sockaddr *)&cli, &len);
 
 	//need to make this concurrent using fork() or pthread_create()
 
 	read(conn, (char *)buff, sizeof(buff));
-
+	printf("%s\n", buff);
 	/* Unsure about convert_addr() function signature and return type */
 	convert_addr(buff);
 
 	close(conn);
-	close(udpsock);
 	close(tcpsock);
 	return 0;
 }
 
 
 void convert_addr(char* buff) {
-	char* host_name;
-	char* request_str = strstr(buff, "Host");
-	char* tok_str = strtok_r(request_str, "\n", &host_name);
-	tok_str = strtok_r(tok_str, " ", &host_name);
-	printf("%s", host_name);
+	char *host_name;
+	char *host;
+	host_name = strtok(buff, " ");
+	host_name = strtok(NULL, " ");
+	host = strtok(host_name, "/");
+	host = strtok(NULL, "/");
+	
+	printf("host:%s\n", host);
+	printf("%d\n", sizeof((char*)&host_name));
 	struct addrinfo hints, *res;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	int status;
-	status = getaddrinfo(host_name, "80", &hints, &res);
+
+	status = getaddrinfo(host, "80", &hints, &res);
 	if(status!=0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
 		exit(2);
@@ -73,6 +76,6 @@ void convert_addr(char* buff) {
 	
 	char ipstr[128];
 
-	//inet_ntop(AF_INET, &(ipv4->sin_addr), ipstr, sizeof(ipstr));
-	//printf("%s\n", ipstr);
+	inet_ntop(AF_INET, &(ipv4->sin_addr), ipstr, sizeof(ipstr));
+	printf("%s\n", ipstr);
 }
