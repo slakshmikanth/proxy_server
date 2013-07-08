@@ -6,8 +6,9 @@
 #include<arpa/inet.h>
 #include<netdb.h>
 #include<string.h>
+#include "http_parser.h"
 
-struct sockaddr_in* convert_addr(char* buff);
+in_addr_t convert_addr(char* buff);
 
 int main(int argc, char *argv[]) {
 	int tcpsock, conn;
@@ -17,7 +18,6 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	}
 	
-	char buff[1024], resp[1024]; //for packet data
 
 	//usual server bindings
 	struct sockaddr_in prox_serv, cli, serv;
@@ -34,30 +34,42 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	}
 	listen(tcpsock, 5);
-	int len = sizeof(cli);
-	conn = accept(tcpsock, (struct sockaddr *)&cli, &len);
-
-	//need to make this concurrent using fork() or pthread_create()
-
-	read(conn, (char *)buff, sizeof(buff));
-	printf("%s\n", buff);
-	/* Unsure about convert_addr() function signature and return type */
-
-	struct sockaddr_in* ipv4 = convert_addr(buff);
-	int sock = socket(AF_INET, SOCK_STREAM, 0);
-	connect(sock, (struct sockaddr *)&ipv4, sizeof(struct sockaddr));
-	printf("ello\n");
-	write(sock, (char*)buff, sizeof(buff));
-	printf("written\n");
-	read(sock, (char*)resp, sizeof(resp));
-	printf("%s\n", resp);
-	close(conn);
+	while(1)
+	{
+		int len = sizeof(cli);
+		char buff[100000], resp[100000];
+		char buffCopy[100000];
+		conn = accept(tcpsock, (struct sockaddr *)&cli, &len);
+	
+		//need to make this concurrent using fork() or pthread_create()
+	
+		read(conn, (char *)buff, 100000);
+		printf("%s\n", buff);
+		strcpy(buffCopy, buff);
+		/* Unsure about convert_addr() function signature and return type */
+	
+		struct sockaddr_in ipv4;
+		ipv4.sin_family = AF_INET;
+		ipv4.sin_port = htons(80);
+		ipv4.sin_addr.s_addr = convert_addr(buffCopy);
+		int sock = socket(AF_INET, SOCK_STREAM, 0);
+		connect(sock, (struct sockaddr *)&ipv4, sizeof(struct sockaddr));
+		write(sock, (char*)buff, strlen(buff));
+		read(sock, (char*)resp, 100000);
+		printf("%s\n", resp);
+		write(conn, resp, strlen(resp));
+		memset(buff, 0, sizeof(resp));
+		memset(buffCopy, 0, sizeof(resp));
+		memset(resp, 0, sizeof(resp));
+		close(conn);
+		close(sock);
+	}
 	close(tcpsock);
 	return 0;
 }
 
 
-struct sockaddr_in* convert_addr(char* buff) {
+in_addr_t convert_addr(char* buff) {
 	char test[8];
 	char *host_name;
 	char *host;
@@ -77,6 +89,16 @@ struct sockaddr_in* convert_addr(char* buff) {
 		(int)host++;
 		printf("HHost:%s\n", host);
 	}
+	int i;
+	for(i=0;host[i]!='\0';i++) {
+		if(host[i] == 13) {
+			printf("thaaaa%caaaaa\n", host[i]);
+			printf("%d\n", (int)host[i]);
+			host[i] = '\0';
+		}
+
+
+	}
 	struct addrinfo hints, *res;
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = AF_INET;
@@ -92,5 +114,5 @@ struct sockaddr_in* convert_addr(char* buff) {
 	char ipstr[128];
 	inet_ntop(AF_INET, &(ipv4->sin_addr), ipstr, sizeof(ipstr));
 	printf("%s\n", ipstr);
-	return (struct sockaddr_in*)res->ai_addr;
+	return ((struct sockaddr_in*)res->ai_addr)->sin_addr.s_addr;
 }
