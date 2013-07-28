@@ -11,7 +11,7 @@
 in_addr_t convert_addr(char* buff);
 
 int main(int argc, char *argv[]) {
-	int tcpsock, conn;
+	int tcpsock, conn, reqCount = 0;
 	tcpsock = socket(AF_INET, SOCK_STREAM, 0);
 	if(tcpsock < 0) {
 		perror("Socket Error");
@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in prox_serv, cli, serv;
 	prox_serv.sin_family = AF_INET;
 	prox_serv.sin_addr.s_addr = INADDR_ANY;
-	prox_serv.sin_port = htons(8888);
+	prox_serv.sin_port = htons(8080);
 	
 	serv.sin_family = AF_INET;
 	serv.sin_port = htons(80);
@@ -34,33 +34,40 @@ int main(int argc, char *argv[]) {
 		exit(0);
 	}
 	listen(tcpsock, 5);
-	while(1)
+	//while(1)
 	{
 		int len = sizeof(cli);
-		char buff[100000], resp[100000];
+		char buff[100000], resp[100000], resp2[1000];
 		char buffCopy[100000];
 		conn = accept(tcpsock, (struct sockaddr *)&cli, &len);
 	
 		//need to make this concurrent using fork() or pthread_create()
 	
 		read(conn, (char *)buff, 100000);
+		printf("Request Count: %d\n", reqCount);
 		printf("%s\n", buff);
 		strcpy(buffCopy, buff);
-		/* Unsure about convert_addr() function signature and return type */
-	
+		reqCount++;
 		struct sockaddr_in ipv4;
 		ipv4.sin_family = AF_INET;
 		ipv4.sin_port = htons(80);
 		ipv4.sin_addr.s_addr = convert_addr(buffCopy);
+		//if(ipv4.sin_addr.s_addr == 0)
+		//	continue;
 		int sock = socket(AF_INET, SOCK_STREAM, 0);
 		connect(sock, (struct sockaddr *)&ipv4, sizeof(struct sockaddr));
 		write(sock, (char*)buff, strlen(buff));
-		read(sock, (char*)resp, 100000);
+		while(read(sock, (char*)resp2, 1000) > 0) {
+			strcat(resp, resp2);
+			memset(resp2, 0, sizeof(resp2));
+		}
+		//printf("\nresponseSize: %d\n", strlen(resp));
 		printf("%s\n", resp);
 		write(conn, resp, strlen(resp));
 		memset(buff, 0, sizeof(resp));
 		memset(buffCopy, 0, sizeof(resp));
 		memset(resp, 0, sizeof(resp));
+		memset(resp, 0, sizeof(resp2));
 		close(conn);
 		close(sock);
 	}
@@ -76,11 +83,24 @@ in_addr_t convert_addr(char* buff) {
 	strncpy(test, buff, 7);
 	test[7] = '\0';
 	if(!strcmp(test, "CONNECT")) {
-		host_name = strtok(buff, " ");
+		/*host_name = strtok(buff, " ");
 		host_name = strtok(NULL, " ");
 		char *host1 = strstr(host_name, ":");
 		strncpy(host, host_name, (int)host1 - (int)host_name);
-		printf("HHost:%s\n", host);
+		printf("HHost:%s\n", host);*/
+		int i = 0;
+		char *host1;
+		char* host_name = strtok(buff, "\n");
+		while(i<5) {
+	        host1 = host_name;
+	        printf("%s\n", host);
+	        host_name = strtok(NULL, "\n");
+	        i++;
+    	}
+	    char* host = strtok(host1, " ");
+	    host = strtok(NULL, " ");
+	    printf("HHost: %s\n", host);
+
 	} else {
 		host_name = strtok(buff, "\n");
 		printf("host%s\n", host_name);
@@ -92,7 +112,8 @@ in_addr_t convert_addr(char* buff) {
 	int i;
 	for(i=0;host[i]!='\0';i++) {
 		if(host[i] == 13) {
-			printf("thaaaa%caaaaa\n", host[i]);
+			printf("hello\n");
+			//printf("thaaaa%caaaaa\n", host[i]);
 			printf("%d\n", (int)host[i]);
 			host[i] = '\0';
 		}
@@ -108,7 +129,7 @@ in_addr_t convert_addr(char* buff) {
 	status = getaddrinfo(host, NULL, &hints, &res);
 	if(status!=0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-		exit(2);
+		return 0;
 	}
 	struct sockaddr_in *ipv4 = (struct sockaddr_in *)res->ai_addr;
 	char ipstr[128];
