@@ -31,9 +31,9 @@ try:
             Servport = 443
         else:
             Servport = 80
-        print Servport
         ind = request.find('Host: ')
-        host = request[ind+6:]
+        ind2 = request.find('User-Agent:')
+        host = request[ind+6:ind2]
         print host.strip()
         res = socket.getaddrinfo(host.strip(), 80, socket.AF_INET, socket.SOCK_STREAM)
         s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
